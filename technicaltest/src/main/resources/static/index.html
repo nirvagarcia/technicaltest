@@ -15,12 +15,19 @@
         function storeData(event) {
             event.preventDefault();
             const formData = new FormData(event.target);
+            const amount = parseFloat(formData.get('amount'));
+
+            if (isNaN(amount) || amount <= 0) {
+                alert('Introduce un valor válido. El valor debe ser un número positivo.');
+                return;
+            }
+
             const data = {
                 type: formData.get('type'),
                 symbol: formData.get('symbol'),
                 interval: formData.get('interval'),
                 exchange: formData.get('exchange'),
-                amount: formData.get('amount')
+                amount: amount
             };
 
             fetch('/api/financialData', {
@@ -62,31 +69,77 @@
         }
 
         function formatData(data) {
-            if (typeof data !== 'object' || data === null) {
+            if (!data || Object.keys(data).length === 0) {
                 return `<div class="alert alert-warning">No data found</div>`;
             }
 
-            const formattedData = `
-                <div class="card">
-                    <div class="card-header">
-                        <h5>${data.symbol} (${data.name})</h5>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Exchange:</strong> ${data.exchange}</p>
-                        <p><strong>Currency:</strong> ${data.currency}</p>
-                        <p><strong>Timestamp:</strong> ${data.timestamp}</p>
-                        <p><strong>Open:</strong> ${data.open}</p>
-                        <p><strong>High:</strong> ${data.high}</p>
-                        <p><strong>Low:</strong> ${data.low}</p>
-                        <p><strong>Close:</strong> ${data.close}</p>
-                        <p><strong>Volume:</strong> ${data.volume}</p>
-                        <p><strong>Change:</strong> ${data.change}</p>
-                        <p><strong>Percent Change:</strong> ${data.percent_change}</p>
-                    </div>
-                </div>
-            `;
+            if (data.meta) {
+                const meta = data.meta;
+                const values = data.values;
 
-            return formattedData;
+                const formattedMeta = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>${meta.symbol} (${meta.type})</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Exchange:</strong> ${meta.exchange}</p>
+                            <p><strong>Currency:</strong> ${meta.currency}</p>
+                            <p><strong>Interval:</strong> ${meta.interval}</p>
+                            <p><strong>Exchange Timezone:</strong> ${meta.exchange_timezone}</p>
+                        </div>
+                    </div>
+                `;
+
+                const formattedValues = values.map(value => `
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6>Timestamp: ${value.datetime}</h6>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Open:</strong> ${value.open}</p>
+                            <p><strong>High:</strong> ${value.high}</p>
+                            <p><strong>Low:</strong> ${value.low}</p>
+                            <p><strong>Close:</strong> ${value.close}</p>
+                            <p><strong>Volume:</strong> ${value.volume}</p>
+                        </div>
+                    </div>
+                `).join('');
+
+                return formattedMeta + formattedValues;
+            } else {
+                const formattedData = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>${data.symbol} (${data.name})</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Exchange:</strong> ${data.exchange}</p>
+                            <p><strong>Currency:</strong> ${data.currency}</p>
+                            <p><strong>Datetime:</strong> ${data.datetime}</p>
+                            <p><strong>Open:</strong> ${data.open}</p>
+                            <p><strong>High:</strong> ${data.high}</p>
+                            <p><strong>Low:</strong> ${data.low}</p>
+                            <p><strong>Close:</strong> ${data.close}</p>
+                            <p><strong>Volume:</strong> ${data.volume}</p>
+                            <p><strong>Previous Close:</strong> ${data.previous_close}</p>
+                            <p><strong>Change:</strong> ${data.change}</p>
+                            <p><strong>Percent Change:</strong> ${data.percent_change}</p>
+                            <p><strong>Average Volume:</strong> ${data.average_volume}</p>
+                            <p><strong>Market Open:</strong> ${data.is_market_open}</p>
+                            <p><strong>52 Week Low:</strong> ${data.fifty_two_week.low}</p>
+                            <p><strong>52 Week High:</strong> ${data.fifty_two_week.high}</p>
+                            <p><strong>52 Week Low Change:</strong> ${data.fifty_two_week.low_change}</p>
+                            <p><strong>52 Week High Change:</strong> ${data.fifty_two_week.high_change}</p>
+                            <p><strong>52 Week Low Change Percent:</strong> ${data.fifty_two_week.low_change_percent}</p>
+                            <p><strong>52 Week High Change Percent:</strong> ${data.fifty_two_week.high_change_percent}</p>
+                            <p><strong>52 Week Range:</strong> ${data.fifty_two_week.range}</p>
+                        </div>
+                    </div>
+                `;
+
+                return formattedData;
+            }
         }
     </script>
 </head>
@@ -125,10 +178,11 @@
                 <select id="store-symbol" class="form-control" name="symbol" required>
                     <option value="" disabled selected>Select</option>
                     <option value="AAPL">Apple (AAPL)</option>
-                    <option value="GOOGL">Google (GOOGL)</option>
-                    <option value="MSFT">Microsoft (MSFT)</option>
                     <option value="AMZN">Amazon (AMZN)</option>
-                    <option value="FB">Facebook (FB)</option>
+                    <option value="MSFT">Microsoft (MSFT)</option>
+                    <option value="GOOGL">Google (GOOGL)</option>
+                    <option value="BSET">Bassett Furniture Industries Inc (BSET)</option>
+                    <option value="TWKS">Thoughtworks Holding Inc (TWKS)</option>
                 </select>
                 <small class="form-text text-muted">Enter the symbol for the selected type.</small>
             </div>
@@ -159,10 +213,9 @@
                 </select>
                 <small class="form-text text-muted">Select the exchange if applicable.</small>
             </div>
-            
             <div class="form-group" id="amount-group">
                 <label for="store-amount">Amount:</label>
-                <input type="number" id="store-amount" class="form-control" name="amount" placeholder="Enter Amount">
+                <input type="text" id="store-amount" class="form-control" name="amount" placeholder="Enter Amount" pattern="^\d+(\.\d{1,2})?$" title="Please enter a valid amount (e.g., 100.50)">
                 <small class="form-text text-muted">Enter the amount for currency conversion. Use a dot as the decimal separator (e.g., 100.50).</small>
             </div>
             <button type="submit" class="btn btn-primary">Store Data</button>
@@ -191,10 +244,11 @@
                 <select id="get-symbol" class="form-control" name="symbol" required>
                     <option value="" disabled selected>Select</option>
                     <option value="AAPL">Apple (AAPL)</option>
-                    <option value="GOOGL">Google (GOOGL)</option>
-                    <option value="MSFT">Microsoft (MSFT)</option>
                     <option value="AMZN">Amazon (AMZN)</option>
-                    <option value="FB">Facebook (FB)</option>
+                    <option value="MSFT">Microsoft (MSFT)</option>
+                    <option value="GOOGL">Google (GOOGL)</option>
+                    <option value="BSET">Bassett Furniture Industries Inc (BSET)</option>
+                    <option value="TWKS">Thoughtworks Holding Inc (TWKS)</option>
                 </select>
                 <small class="form-text text-muted">Select the symbol for the selected type.</small>
             </div>
