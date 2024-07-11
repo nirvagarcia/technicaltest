@@ -7,12 +7,26 @@
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-5">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Interbank</a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showSection('store-data')">Store Data</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showSection('get-data')">Get Data</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container mt-5" id="store-data">
         <h1 class="text-center">Store Financial Data</h1>
         <form id="store-form" class="mt-4">
             <div class="form-group">
                 <label for="store-type">Type:</label>
                 <select id="store-type" class="form-control" name="type" required>
+                    <option value="" disabled selected>Select</option>
                     <option value="stock">Stock</option>
                     <option value="forex">Forex</option>
                 </select>
@@ -21,6 +35,7 @@
             <div class="form-group" id="stock-symbol-group">
                 <label for="store-symbol">Symbol:</label>
                 <select id="store-symbol" class="form-control" name="symbol">
+                    <option value="" disabled selected>Select</option>
                     <option value="AAPL">Apple (AAPL)</option>
                     <option value="MSFT">Microsoft (MSFT)</option>
                     <option value="GOOGL">Google (GOOGL)</option>
@@ -32,6 +47,7 @@
             <div class="form-group" id="forex-from-group">
                 <label for="store-fromCurrency">From Currency (Forex only):</label>
                 <select id="store-fromCurrency" class="form-control" name="fromCurrency">
+                    <option value="" disabled selected>Select</option>
                     <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
                     <option value="GBP">GBP</option>
@@ -42,6 +58,7 @@
             <div class="form-group" id="forex-to-group">
                 <label for="store-toCurrency">To Currency (Forex only):</label>
                 <select id="store-toCurrency" class="form-control" name="toCurrency">
+                    <option value="" disabled selected>Select</option>
                     <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
                     <option value="GBP">GBP</option>
@@ -52,12 +69,15 @@
             <button type="submit" class="btn btn-primary">Store Financial Data</button>
         </form>
         <div id="store-result" class="mt-4"></div>
+    </div>
 
-        <h1 class="text-center mt-5">Get Financial Data</h1>
+    <div class="container mt-5" id="get-data" style="display:none;">
+        <h1 class="text-center">Get Financial Data</h1>
         <form id="financial-form" class="mt-4">
             <div class="form-group">
                 <label for="type">Type:</label>
                 <select id="type" class="form-control" name="type" required>
+                    <option value="" disabled selected>Select</option>
                     <option value="stock">Stock</option>
                     <option value="forex">Forex</option>
                 </select>
@@ -66,6 +86,7 @@
             <div class="form-group" id="financial-symbol-group">
                 <label for="symbol">Symbol:</label>
                 <select id="symbol" class="form-control" name="symbol">
+                    <option value="" disabled selected>Select</option>
                     <option value="AAPL">Apple (AAPL)</option>
                     <option value="MSFT">Microsoft (MSFT)</option>
                     <option value="GOOGL">Google (GOOGL)</option>
@@ -77,6 +98,7 @@
             <div class="form-group" id="financial-from-group">
                 <label for="fromCurrency">From Currency (Forex only):</label>
                 <select id="fromCurrency" class="form-control" name="fromCurrency">
+                    <option value="" disabled selected>Select</option>
                     <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
                     <option value="GBP">GBP</option>
@@ -87,6 +109,7 @@
             <div class="form-group" id="financial-to-group">
                 <label for="toCurrency">To Currency (Forex only):</label>
                 <select id="toCurrency" class="form-control" name="toCurrency">
+                    <option value="" disabled selected>Select</option>
                     <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
                     <option value="GBP">GBP</option>
@@ -100,6 +123,12 @@
     </div>
 
     <script>
+        function showSection(sectionId) {
+            document.getElementById('store-data').style.display = 'none';
+            document.getElementById('get-data').style.display = 'none';
+            document.getElementById(sectionId).style.display = 'block';
+        }
+
         document.getElementById('store-type').addEventListener('change', function() {
             const type = this.value;
             if (type === 'forex') {
@@ -136,7 +165,7 @@
             })
             .then(response => response.text())
             .then(data => {
-                document.getElementById('store-result').innerHTML = `<pre>${data}</pre>`;
+                document.getElementById('store-result').innerHTML = `<div class="alert alert-success">Datos almacenados para: ${type} ${type === 'forex' ? fromCurrency + '_' + toCurrency : symbol}</div>`;
             })
             .catch(error => {
                 console.error('Error storing data:', error);
@@ -171,15 +200,52 @@
             }
 
             fetch(url)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('No data found');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     const resultDiv = document.getElementById('result');
-                    resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    if (type === 'forex') {
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-info">
+                                <p><strong>From Currency Code:</strong> ${data["1. From_Currency Code"]}</p>
+                                <p><strong>From Currency Name:</strong> ${data["2. From_Currency Name"]}</p>
+                                <p><strong>To Currency Code:</strong> ${data["3. To_Currency Code"]}</p>
+                                <p><strong>To Currency Name:</strong> ${data["4. To_Currency Name"]}</p>
+                                <p><strong>Exchange Rate:</strong> ${data["5. Exchange Rate"]}</p>
+                                <p><strong>Last Refreshed:</strong> ${data["6. Last Refreshed"]}</p>
+                                <p><strong>Time Zone:</strong> ${data["7. Time Zone"]}</p>
+                                <p><strong>Bid Price:</strong> ${data["8. Bid Price"]}</p>
+                                <p><strong>Ask Price:</strong> ${data["9. Ask Price"]}</p>
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-info">
+                                <p><strong>Average Close:</strong> ${data.averageClose}</p>
+                                <p><strong>Average High:</strong> ${data.averageHigh}</p>
+                                <p><strong>Average Open:</strong> ${data.averageOpen}</p>
+                                <p><strong>Average Low:</strong> ${data.averageLow}</p>
+                            </div>
+                        `;
+                    }
                 })
                 .catch(error => {
+                    const resultDiv = document.getElementById('result');
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-warning">
+                            No se encontró data cargada para Currency ${fromCurrency} to ${toCurrency}, no olvide cargarlas en Store Data!
+                        </div>
+                    `;
                     console.error('Error fetching data:', error);
                 });
         });
+
+
+
 
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('store-fromCurrency').parentElement.style.display = 'none';

@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+
 import java.util.*;
 
 @RestController
@@ -28,56 +29,65 @@ public class ApiController {
         if (response.getStatusCode() == HttpStatus.OK) {
             Map<String, Object> financialData = response.getBody();
             if (financialData != null) {
-                String key = DATA_KEY_PREFIX + financialRequest.getType() + ":" + financialRequest.getSymbolOrCurrency();
-                redisTemplate.opsForValue().set(key, financialData);
-                return ResponseEntity.ok("Datos almacenados para: " + financialRequest.getType() + " " + financialRequest.getSymbolOrCurrency());
+                if (financialData.containsKey("Time Series (5min)")) {
+                    Map<String, Object> timeSeriesData = (Map<String, Object>) financialData.get("Time Series (5min)");
+                    for (Map.Entry<String, Object> timeEntry : timeSeriesData.entrySet()) {
+                        String key = DATA_KEY_PREFIX + financialRequest.getSymbol() + ":" + timeEntry.getKey();
+                        redisTemplate.opsForValue().set(key, timeEntry.getValue());
+                    }
+                }
             }
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al almacenar los datos en Redis");
+            return ResponseEntity.ok("Datos almacenados para: " + financialRequest.getType() + " " + financialRequest.getSymbol());
         } else {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al obtener datos del API");
         }
     }
 
     @GetMapping("/financialData")
-    public ResponseEntity<Object> getFinancialData(@RequestParam String type, @RequestParam String symbolOrCurrency) {
-        String key = DATA_KEY_PREFIX + type + ":" + symbolOrCurrency;
-        Object financialData = redisTemplate.opsForValue().get(key);
-        if (financialData != null) {
-            return ResponseEntity.ok(financialData);
-        } else {
+    public ResponseEntity<Object> getFinancialData(@RequestParam String type, @RequestParam String symbol) {
+        String keyPattern = DATA_KEY_PREFIX + symbol + ":*";
+        Set<String> keys = redisTemplate.keys(keyPattern);
+
+        if (keys == null || keys.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No data found");
         }
+
+        List<Map<String, String>> dataPoints = new ArrayList<>();
+        for (String key : keys) {
+            Map<String, String> data = (Map<String, String>) redisTemplate.opsForValue().get(key);
+            dataPoints.add(data);
+        }
+
+        Map<String, Object> summary = calculateSummary(dataPoints);
+        return ResponseEntity.ok(summary);
     }
 
     @GetMapping("/financialData/summary")
-    public ResponseEntity<Object> getFinancialDataSummary(@RequestParam String type, @RequestParam String symbolOrCurrency) {
-        String key = DATA_KEY_PREFIX + type + ":" + symbolOrCurrency;
-        Object financialData = redisTemplate.opsForValue().get(key);
+    public ResponseEntity<Object> getFinancialDataSummary(@RequestParam String type, @RequestParam(required = false) String symbol, @RequestParam(required = false) String fromCurrency, @RequestParam(required = false) String toCurrency) {
+        String keyPattern;
 
-        if (financialData == null) {
+        if ("stock".equalsIgnoreCase(type)) {
+            keyPattern = DATA_KEY_PREFIX + symbol + ":*";
+        } else if ("forex".equalsIgnoreCase(type)) {
+            keyPattern = DATA_KEY_PREFIX + fromCurrency + toCurrency + ":*";
+        } else {
+            return ResponseEntity.badRequest().body("Invalid type");
+        }
+
+        Set<String> keys = redisTemplate.keys(keyPattern);
+
+        if (keys == null || keys.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No data found");
         }
 
-        if (type.equals("stock")) {
-            Map<String, Object> data = (Map<String, Object>) financialData;
-            if (data.containsKey("Time Series (5min)")) {
-                Map<String, Object> timeSeriesData = (Map<String, Object>) data.get("Time Series (5min)");
-                List<Map<String, String>> dataPoints = new ArrayList<>();
-                for (Map.Entry<String, Object> timeEntry : timeSeriesData.entrySet()) {
-                    dataPoints.add((Map<String, String>) timeEntry.getValue());
-                }
-                Map<String, Object> summary = calculateSummary(dataPoints);
-                return ResponseEntity.ok(summary);
-            }
-        } else if (type.equals("forex")) {
-            Map<String, Object> data = (Map<String, Object>) financialData;
-            if (data.containsKey("Realtime Currency Exchange Rate")) {
-                Map<String, String> exchangeRateData = (Map<String, String>) data.get("Realtime Currency Exchange Rate");
-                return ResponseEntity.ok(exchangeRateData);
-            }
+        List<Map<String, String>> dataPoints = new ArrayList<>();
+        for (String key : keys) {
+            Map<String, String> data = (Map<String, String>) redisTemplate.opsForValue().get(key);
+            dataPoints.add(data);
         }
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing the data");
+        Map<String, Object> summary = calculateSummary(dataPoints);
+        return ResponseEntity.ok(summary);
     }
 
     private Map<String, Object> calculateSummary(List<Map<String, String>> dataPoints) {
