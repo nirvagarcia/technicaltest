@@ -3,8 +3,9 @@ package garcia.technicaltest;
 public class FinancialRequest {
     private String type;
     private String symbol;
-    private String fromCurrency;
-    private String toCurrency;
+    private String interval;
+    private String exchange;
+    private String amount;
 
     public String getType() {
         return type;
@@ -22,23 +23,31 @@ public class FinancialRequest {
         this.symbol = symbol;
     }
 
-    public String getFromCurrency() {
-        return fromCurrency;
+    public String getInterval() {
+        return interval;
     }
 
-    public void setFromCurrency(String fromCurrency) {
-        this.fromCurrency = fromCurrency;
+    public void setInterval(String interval) {
+        this.interval = interval;
     }
 
-    public String getToCurrency() {
-        return toCurrency;
+    public String getExchange() {
+        return exchange;
     }
 
-    public void setToCurrency(String toCurrency) {
-        this.toCurrency = toCurrency;
+    public void setExchange(String exchange) {
+        this.exchange = exchange;
+    }
+
+    public String getAmount() {
+        return amount;
+    }
+
+    public void setAmount(String amount) {
+        this.amount = amount;
     }
 
     public String getSymbolOrCurrency() {
-        return type.equals("forex") ? fromCurrency + "_" + toCurrency : symbol;
+        return symbol;
     }
 }

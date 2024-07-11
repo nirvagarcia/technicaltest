@@ -5,6 +5,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Financial Data</title>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script>
+        function showSection(sectionId) {
+            document.getElementById('store-data').style.display = 'none';
+            document.getElementById('get-data').style.display = 'none';
+            document.getElementById(sectionId).style.display = 'block';
+        }
+
+        function storeData(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = {
+                type: formData.get('type'),
+                symbol: formData.get('symbol'),
+                interval: formData.get('interval'),
+                exchange: formData.get('exchange'),
+                amount: formData.get('amount')
+            };
+
+            fetch('/api/financialData', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.text())
+            .then(result => {
+                const resultContainer = document.getElementById('store-result');
+                resultContainer.innerHTML = `<div class="alert alert-success">${result}</div>`;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const resultContainer = document.getElementById('store-result');
+                resultContainer.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            });
+        }
+
+        function getData(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const type = formData.get('type');
+            const symbol = formData.get('symbol');
+
+            fetch(`/api/financialData?type=${type}&symbol=${symbol}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultContainer = document.getElementById('get-result');
+                resultContainer.innerHTML = formatData(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const resultContainer = document.getElementById('get-result');
+                resultContainer.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            });
+        }
+
+        function formatData(data) {
+            if (typeof data !== 'object' || data === null) {
+                return `<div class="alert alert-warning">No data found</div>`;
+            }
+
+            const formattedData = `
+                <div class="card">
+                    <div class="card-header">
+                        <h5>${data.symbol} (${data.name})</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Exchange:</strong> ${data.exchange}</p>
+                        <p><strong>Currency:</strong> ${data.currency}</p>
+                        <p><strong>Timestamp:</strong> ${data.timestamp}</p>
+                        <p><strong>Open:</strong> ${data.open}</p>
+                        <p><strong>High:</strong> ${data.high}</p>
+                        <p><strong>Low:</strong> ${data.low}</p>
+                        <p><strong>Close:</strong> ${data.close}</p>
+                        <p><strong>Volume:</strong> ${data.volume}</p>
+                        <p><strong>Change:</strong> ${data.change}</p>
+                        <p><strong>Percent Change:</strong> ${data.percent_change}</p>
+                    </div>
+                </div>
+            `;
+
+            return formattedData;
+        }
+    </script>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -22,237 +106,102 @@
     </nav>
     <div class="container mt-5" id="store-data">
         <h1 class="text-center">Store Financial Data</h1>
-        <form id="store-form" class="mt-4">
+        <form id="store-form" class="mt-4" onsubmit="storeData(event)">
             <div class="form-group">
                 <label for="store-type">Type:</label>
                 <select id="store-type" class="form-control" name="type" required>
                     <option value="" disabled selected>Select</option>
                     <option value="stock">Stock</option>
                     <option value="forex">Forex</option>
+                    <option value="crypto">Crypto</option>
+                    <option value="etf">ETF</option>
+                    <option value="index">Index</option>
+                    <option value="fund">Fund</option>
                 </select>
-                <small class="form-text text-muted">Choose "Stock" to get data for company shares, or "Forex" to get foreign exchange rates.</small>
+                <small class="form-text text-muted">Choose the type of financial data you want to store.</small>
             </div>
-            <div class="form-group" id="stock-symbol-group">
+            <div class="form-group" id="symbol-group">
                 <label for="store-symbol">Symbol:</label>
-                <select id="store-symbol" class="form-control" name="symbol">
+                <select id="store-symbol" class="form-control" name="symbol" required>
                     <option value="" disabled selected>Select</option>
                     <option value="AAPL">Apple (AAPL)</option>
-                    <option value="MSFT">Microsoft (MSFT)</option>
                     <option value="GOOGL">Google (GOOGL)</option>
+                    <option value="MSFT">Microsoft (MSFT)</option>
                     <option value="AMZN">Amazon (AMZN)</option>
                     <option value="FB">Facebook (FB)</option>
                 </select>
-                <small class="form-text text-muted">For stocks, select the stock symbol. For forex, leave this blank.</small>
+                <small class="form-text text-muted">Enter the symbol for the selected type.</small>
             </div>
-            <div class="form-group" id="forex-from-group">
-                <label for="store-fromCurrency">From Currency (Forex only):</label>
-                <select id="store-fromCurrency" class="form-control" name="fromCurrency">
+            <div class="form-group" id="interval-group">
+                <label for="store-interval">Interval:</label>
+                <select id="store-interval" class="form-control" name="interval">
                     <option value="" disabled selected>Select</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="JPY">JPY</option>
+                    <option value="1min">1 minute</option>
+                    <option value="5min">5 minutes</option>
+                    <option value="15min">15 minutes</option>
+                    <option value="30min">30 minutes</option>
+                    <option value="1h">1 hour</option>
+                    <option value="1day">1 day</option>
+                    <option value="1week">1 week</option>
+                    <option value="1month">1 month</option>
                 </select>
-                <small class="form-text text-muted">Select the currency you want to convert from.</small>
+                <small class="form-text text-muted">Select the interval for time series data.</small>
             </div>
-            <div class="form-group" id="forex-to-group">
-                <label for="store-toCurrency">To Currency (Forex only):</label>
-                <select id="store-toCurrency" class="form-control" name="toCurrency">
+            <div class="form-group" id="exchange-group">
+                <label for="store-exchange">Exchange:</label>
+                <select id="store-exchange" class="form-control" name="exchange">
                     <option value="" disabled selected>Select</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="JPY">JPY</option>
+                    <option value="NYSE">New York Stock Exchange (NYSE)</option>
+                    <option value="NASDAQ">NASDAQ</option>
+                    <option value="LSE">London Stock Exchange (LSE)</option>
+                    <option value="JPX">Japan Exchange Group (JPX)</option>
+                    <option value="SSE">Shanghai Stock Exchange (SSE)</option>
                 </select>
-                <small class="form-text text-muted">Select the currency you want to convert to.</small>
+                <small class="form-text text-muted">Select the exchange if applicable.</small>
             </div>
-            <button type="submit" class="btn btn-primary">Store Financial Data</button>
+            
+            <div class="form-group" id="amount-group">
+                <label for="store-amount">Amount:</label>
+                <input type="number" id="store-amount" class="form-control" name="amount" placeholder="Enter Amount">
+                <small class="form-text text-muted">Enter the amount for currency conversion. Use a dot as the decimal separator (e.g., 100.50).</small>
+            </div>
+            <button type="submit" class="btn btn-primary">Store Data</button>
         </form>
         <div id="store-result" class="mt-4"></div>
     </div>
 
     <div class="container mt-5" id="get-data" style="display:none;">
         <h1 class="text-center">Get Financial Data</h1>
-        <form id="financial-form" class="mt-4">
+        <form id="get-form" class="mt-4" onsubmit="getData(event)">
             <div class="form-group">
-                <label for="type">Type:</label>
-                <select id="type" class="form-control" name="type" required>
+                <label for="get-type">Type:</label>
+                <select id="get-type" class="form-control" name="type" required>
                     <option value="" disabled selected>Select</option>
                     <option value="stock">Stock</option>
                     <option value="forex">Forex</option>
+                    <option value="crypto">Crypto</option>
+                    <option value="etf">ETF</option>
+                    <option value="index">Index</option>
+                    <option value="fund">Fund</option>
                 </select>
-                <small class="form-text text-muted">Choose "Stock" to get data for company shares, or "Forex" to get foreign exchange rates.</small>
+                <small class="form-text text-muted">Choose the type of financial data you want to get.</small>
             </div>
-            <div class="form-group" id="financial-symbol-group">
-                <label for="symbol">Symbol:</label>
-                <select id="symbol" class="form-control" name="symbol">
+            <div class="form-group">
+                <label for="get-symbol">Symbol:</label>
+                <select id="get-symbol" class="form-control" name="symbol" required>
                     <option value="" disabled selected>Select</option>
                     <option value="AAPL">Apple (AAPL)</option>
-                    <option value="MSFT">Microsoft (MSFT)</option>
                     <option value="GOOGL">Google (GOOGL)</option>
+                    <option value="MSFT">Microsoft (MSFT)</option>
                     <option value="AMZN">Amazon (AMZN)</option>
                     <option value="FB">Facebook (FB)</option>
                 </select>
-                <small class="form-text text-muted">For stocks, select the stock symbol. For forex, leave this blank.</small>
+                <small class="form-text text-muted">Select the symbol for the selected type.</small>
             </div>
-            <div class="form-group" id="financial-from-group">
-                <label for="fromCurrency">From Currency (Forex only):</label>
-                <select id="fromCurrency" class="form-control" name="fromCurrency">
-                    <option value="" disabled selected>Select</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="JPY">JPY</option>
-                </select>
-                <small class="form-text text-muted">Select the currency you want to convert from.</small>
-            </div>
-            <div class="form-group" id="financial-to-group">
-                <label for="toCurrency">To Currency (Forex only):</label>
-                <select id="toCurrency" class="form-control" name="toCurrency">
-                    <option value="" disabled selected>Select</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="JPY">JPY</option>
-                </select>
-                <small class="form-text text-muted">Select the currency you want to convert to.</small>
-            </div>
-            <button type="submit" class="btn btn-primary">Get Financial Data</button>
+            
+            <button type="submit" class="btn btn-primary">Get Data</button>
         </form>
-        <div id="result" class="mt-4"></div>
+        <div id="get-result" class="mt-4"></div>
     </div>
-
-    <script>
-        function showSection(sectionId) {
-            document.getElementById('store-data').style.display = 'none';
-            document.getElementById('get-data').style.display = 'none';
-            document.getElementById(sectionId).style.display = 'block';
-        }
-
-        document.getElementById('store-type').addEventListener('change', function() {
-            const type = this.value;
-            if (type === 'forex') {
-                document.getElementById('store-fromCurrency').parentElement.style.display = 'block';
-                document.getElementById('store-toCurrency').parentElement.style.display = 'block';
-                document.getElementById('stock-symbol-group').style.display = 'none';
-            } else {
-                document.getElementById('store-fromCurrency').parentElement.style.display = 'none';
-                document.getElementById('store-toCurrency').parentElement.style.display = 'none';
-                document.getElementById('stock-symbol-group').style.display = 'block';
-            }
-        });
-
-        document.getElementById('store-form').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const type = document.getElementById('store-type').value;
-            const symbol = document.getElementById('store-symbol').value;
-            const fromCurrency = document.getElementById('store-fromCurrency').value;
-            const toCurrency = document.getElementById('store-toCurrency').value;
-
-            const requestData = {
-                type: type,
-                symbol: symbol,
-                fromCurrency: fromCurrency,
-                toCurrency: toCurrency
-            };
-
-            fetch('/api/financialData', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
-            })
-            .then(response => response.text())
-            .then(data => {
-                document.getElementById('store-result').innerHTML = `<div class="alert alert-success">Datos almacenados para: ${type} ${type === 'forex' ? fromCurrency + '_' + toCurrency : symbol}</div>`;
-            })
-            .catch(error => {
-                console.error('Error storing data:', error);
-            });
-        });
-
-        document.getElementById('type').addEventListener('change', function() {
-            const type = this.value;
-            if (type === 'forex') {
-                document.getElementById('fromCurrency').parentElement.style.display = 'block';
-                document.getElementById('toCurrency').parentElement.style.display = 'block';
-                document.getElementById('financial-symbol-group').style.display = 'none';
-            } else {
-                document.getElementById('fromCurrency').parentElement.style.display = 'none';
-                document.getElementById('toCurrency').parentElement.style.display = 'none';
-                document.getElementById('financial-symbol-group').style.display = 'block';
-            }
-        });
-
-        document.getElementById('financial-form').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const type = document.getElementById('type').value;
-            const symbol = document.getElementById('symbol').value;
-            const fromCurrency = document.getElementById('fromCurrency').value;
-            const toCurrency = document.getElementById('toCurrency').value;
-
-            let url = `/api/financialData/summary?type=${type}`;
-            if (type === 'forex') {
-                url += `&symbolOrCurrency=${fromCurrency}_${toCurrency}`;
-            } else {
-                url += `&symbolOrCurrency=${symbol}`;
-            }
-
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('No data found');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    const resultDiv = document.getElementById('result');
-                    if (type === 'forex') {
-                        resultDiv.innerHTML = `
-                            <div class="alert alert-info">
-                                <p><strong>From Currency Code:</strong> ${data["1. From_Currency Code"]}</p>
-                                <p><strong>From Currency Name:</strong> ${data["2. From_Currency Name"]}</p>
-                                <p><strong>To Currency Code:</strong> ${data["3. To_Currency Code"]}</p>
-                                <p><strong>To Currency Name:</strong> ${data["4. To_Currency Name"]}</p>
-                                <p><strong>Exchange Rate:</strong> ${data["5. Exchange Rate"]}</p>
-                                <p><strong>Last Refreshed:</strong> ${data["6. Last Refreshed"]}</p>
-                                <p><strong>Time Zone:</strong> ${data["7. Time Zone"]}</p>
-                                <p><strong>Bid Price:</strong> ${data["8. Bid Price"]}</p>
-                                <p><strong>Ask Price:</strong> ${data["9. Ask Price"]}</p>
-                            </div>
-                        `;
-                    } else {
-                        resultDiv.innerHTML = `
-                            <div class="alert alert-info">
-                                <p><strong>Average Close:</strong> ${data.averageClose}</p>
-                                <p><strong>Average High:</strong> ${data.averageHigh}</p>
-                                <p><strong>Average Open:</strong> ${data.averageOpen}</p>
-                                <p><strong>Average Low:</strong> ${data.averageLow}</p>
-                            </div>
-                        `;
-                    }
-                })
-                .catch(error => {
-                    const resultDiv = document.getElementById('result');
-                    resultDiv.innerHTML = `
-                        <div class="alert alert-warning">
-                            No se encontró data cargada para Currency ${fromCurrency} to ${toCurrency}, no olvide cargarlas en Store Data!
-                        </div>
-                    `;
-                    console.error('Error fetching data:', error);
-                });
-        });
-
-
-
-
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('store-fromCurrency').parentElement.style.display = 'none';
-            document.getElementById('store-toCurrency').parentElement.style.display = 'none';
-            document.getElementById('forex-from-group').style.display = 'none';
-            document.getElementById('forex-to-group').style.display = 'none';
-        });
-    </script>
 </body>
 </html>

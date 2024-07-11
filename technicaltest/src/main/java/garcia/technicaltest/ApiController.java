@@ -6,7 +6,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
-
 import java.util.*;
 
 @RestController
@@ -17,7 +16,7 @@ public class ApiController {
     private RedisTemplate<String, Object> redisTemplate;
 
     private static final String DATA_KEY_PREFIX = "financialData:";
-    private static final String API_KEY = "D0BB06WI0ONDDW4C";
+    private static final String API_KEY = "b28ecf24b43e485db9e434850811e0f1";
 
     @PostMapping("/financialData")
     public ResponseEntity<String> storeFinancialData(@RequestBody FinancialRequest financialRequest) {
@@ -29,15 +28,11 @@ public class ApiController {
         if (response.getStatusCode() == HttpStatus.OK) {
             Map<String, Object> financialData = response.getBody();
             if (financialData != null) {
-                if (financialData.containsKey("Time Series (5min)")) {
-                    Map<String, Object> timeSeriesData = (Map<String, Object>) financialData.get("Time Series (5min)");
-                    for (Map.Entry<String, Object> timeEntry : timeSeriesData.entrySet()) {
-                        String key = DATA_KEY_PREFIX + financialRequest.getSymbol() + ":" + timeEntry.getKey();
-                        redisTemplate.opsForValue().set(key, timeEntry.getValue());
-                    }
-                }
+                String key = DATA_KEY_PREFIX + financialRequest.getType() + ":" + financialRequest.getSymbol();
+                redisTemplate.opsForValue().set(key, financialData);
+                return ResponseEntity.ok("Datos almacenados para: " + financialRequest.getType() + " " + financialRequest.getSymbol());
             }
-            return ResponseEntity.ok("Datos almacenados para: " + financialRequest.getType() + " " + financialRequest.getSymbol());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al almacenar los datos en Redis");
         } else {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al obtener datos del API");
         }
@@ -45,49 +40,39 @@ public class ApiController {
 
     @GetMapping("/financialData")
     public ResponseEntity<Object> getFinancialData(@RequestParam String type, @RequestParam String symbol) {
-        String keyPattern = DATA_KEY_PREFIX + symbol + ":*";
-        Set<String> keys = redisTemplate.keys(keyPattern);
-
-        if (keys == null || keys.isEmpty()) {
+        String key = DATA_KEY_PREFIX + type + ":" + symbol;
+        Object financialData = redisTemplate.opsForValue().get(key);
+        if (financialData != null) {
+            return ResponseEntity.ok(financialData);
+        } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No data found");
         }
-
-        List<Map<String, String>> dataPoints = new ArrayList<>();
-        for (String key : keys) {
-            Map<String, String> data = (Map<String, String>) redisTemplate.opsForValue().get(key);
-            dataPoints.add(data);
-        }
-
-        Map<String, Object> summary = calculateSummary(dataPoints);
-        return ResponseEntity.ok(summary);
     }
 
     @GetMapping("/financialData/summary")
-    public ResponseEntity<Object> getFinancialDataSummary(@RequestParam String type, @RequestParam(required = false) String symbol, @RequestParam(required = false) String fromCurrency, @RequestParam(required = false) String toCurrency) {
-        String keyPattern;
+    public ResponseEntity<Object> getFinancialDataSummary(@RequestParam String type, @RequestParam String symbol) {
+        String key = DATA_KEY_PREFIX + type + ":" + symbol;
+        Object financialData = redisTemplate.opsForValue().get(key);
 
-        if ("stock".equalsIgnoreCase(type)) {
-            keyPattern = DATA_KEY_PREFIX + symbol + ":*";
-        } else if ("forex".equalsIgnoreCase(type)) {
-            keyPattern = DATA_KEY_PREFIX + fromCurrency + toCurrency + ":*";
-        } else {
-            return ResponseEntity.badRequest().body("Invalid type");
-        }
-
-        Set<String> keys = redisTemplate.keys(keyPattern);
-
-        if (keys == null || keys.isEmpty()) {
+        if (financialData == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No data found");
         }
 
-        List<Map<String, String>> dataPoints = new ArrayList<>();
-        for (String key : keys) {
-            Map<String, String> data = (Map<String, String>) redisTemplate.opsForValue().get(key);
-            dataPoints.add(data);
+        if (type.equals("stock")) {
+            Map<String, Object> data = (Map<String, Object>) financialData;
+            if (data.containsKey("values")) {
+                List<Map<String, String>> dataPoints = (List<Map<String, String>>) data.get("values");
+                Map<String, Object> summary = calculateSummary(dataPoints);
+                return ResponseEntity.ok(summary);
+            }
+        } else if (type.equals("forex")) {
+            Map<String, Object> data = (Map<String, Object>) financialData;
+            if (data.containsKey("rate")) {
+                return ResponseEntity.ok(data);
+            }
         }
 
-        Map<String, Object> summary = calculateSummary(dataPoints);
-        return ResponseEntity.ok(summary);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing the data");
     }
 
     private Map<String, Object> calculateSummary(List<Map<String, String>> dataPoints) {
@@ -95,10 +80,10 @@ public class ApiController {
         int count = dataPoints.size();
 
         for (Map<String, String> dataPoint : dataPoints) {
-            totalOpen += Double.parseDouble(dataPoint.get("1. open"));
-            totalClose += Double.parseDouble(dataPoint.get("4. close"));
-            totalHigh += Double.parseDouble(dataPoint.get("2. high"));
-            totalLow += Double.parseDouble(dataPoint.get("3. low"));
+            totalOpen += Double.parseDouble(dataPoint.get("open"));
+            totalClose += Double.parseDouble(dataPoint.get("close"));
+            totalHigh += Double.parseDouble(dataPoint.get("high"));
+            totalLow += Double.parseDouble(dataPoint.get("low"));
         }
 
         Map<String, Object> summary = new HashMap<>();
@@ -111,15 +96,25 @@ public class ApiController {
     }
 
     private String buildApiUrl(FinancialRequest financialRequest) {
-        String apiUrl = "";
+        String apiUrl = "https://api.twelvedata.com/";
         switch (financialRequest.getType()) {
             case "stock":
-                apiUrl = "https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol="
-                        + financialRequest.getSymbol() + "&interval=5min&apikey=" + API_KEY;
+                apiUrl += "time_series?symbol=" + financialRequest.getSymbol() + "&interval=" + financialRequest.getInterval() + "&apikey=" + API_KEY;
                 break;
             case "forex":
-                apiUrl = "https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency="
-                        + financialRequest.getFromCurrency() + "&to_currency=" + financialRequest.getToCurrency() + "&apikey=" + API_KEY;
+                apiUrl += "exchange_rate?symbol=" + financialRequest.getSymbol() + "&apikey=" + API_KEY;
+                break;
+            case "crypto":
+                apiUrl += "time_series?symbol=" + financialRequest.getSymbol() + "&interval=" + financialRequest.getInterval() + "&apikey=" + API_KEY;
+                break;
+            case "etf":
+                apiUrl += "quote?symbol=" + financialRequest.getSymbol() + "&apikey=" + API_KEY;
+                break;
+            case "index":
+                apiUrl += "quote?symbol=" + financialRequest.getSymbol() + "&apikey=" + API_KEY;
+                break;
+            case "fund":
+                apiUrl += "quote?symbol=" + financialRequest.getSymbol() + "&apikey=" + API_KEY;
                 break;
         }
         return apiUrl;
