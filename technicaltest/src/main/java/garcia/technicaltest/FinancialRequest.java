@@ -37,4 +37,8 @@ public class FinancialRequest {
     public void setToCurrency(String toCurrency) {
         this.toCurrency = toCurrency;
     }
+
+    public String getSymbolOrCurrency() {
+        return type.equals("forex") ? fromCurrency + "_" + toCurrency : symbol;
+    }
 }
