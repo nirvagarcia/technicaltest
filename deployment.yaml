@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: technicaltest-deployment
+  labels:
+    app: technicaltest
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: technicaltest
+  template:
+    metadata:
+      labels:
+        app: technicaltest
+    spec:
+      containers:
+      - name: technicaltest
+        image: nirvagarcia/technicaltest:latest
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: technicaltest-service
+spec:
+  type: NodePort
+  selector:
+    app: technicaltest
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30007
