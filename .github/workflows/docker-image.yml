@@ -20,9 +20,7 @@ jobs:
         distribution: 'temurin'
 
     - name: Build with Maven
-      run: |
-        mvn clean package
-      working-directory: ./technicaltest
+      run: mvn clean package
 
     - name: Log in to Docker Hub
       run: echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
