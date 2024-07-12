@@ -30,6 +30,7 @@ public class ApiController {
         String apiUrl = buildApiUrl(financialRequest);
 
         RestTemplate restTemplate = new RestTemplate();
+        @SuppressWarnings("unchecked")
         ResponseEntity<Map<String, Object>> response = restTemplate.getForEntity(apiUrl, (Class<Map<String, Object>>)(Class<?>)Map.class);
 
         if (response.getStatusCode() == HttpStatus.OK) {
@@ -66,13 +67,16 @@ public class ApiController {
         }
 
         if (type.equals("stock")) {
+            @SuppressWarnings("unchecked")
             Map<String, Object> data = (Map<String, Object>) financialData;
             if (data.containsKey("values")) {
+                @SuppressWarnings("unchecked")
                 List<Map<String, String>> dataPoints = (List<Map<String, String>>) data.get("values");
                 Map<String, Object> summary = calculateSummary(dataPoints);
                 return ResponseEntity.ok(summary);
             }
         } else if (type.equals("forex")) {
+            @SuppressWarnings("unchecked")
             Map<String, Object> data = (Map<String, Object>) financialData;
             if (data.containsKey("rate")) {
                 return ResponseEntity.ok(data);
