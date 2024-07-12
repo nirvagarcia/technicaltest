@@ -1,4 +1,4 @@
-package garcia.technicaltest;
+package garcia.technicaltest.application.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -6,6 +6,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+
+import garcia.technicaltest.domain.model.FinancialRequest;
+import garcia.technicaltest.infrastructure.services.RedisService;
+
 import java.util.*;
 
 @RestController
@@ -14,6 +18,9 @@ public class ApiController {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private RedisService redisService;
 
     private static final String DATA_KEY_PREFIX = "financialData:";
     private static final String API_KEY = "b28ecf24b43e485db9e434850811e0f1";
@@ -73,6 +80,12 @@ public class ApiController {
         }
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing the data");
+    }
+
+    @GetMapping("/options")
+    public ResponseEntity<Map<String, List<String>>> getOptions() {
+        Map<String, List<String>> options = redisService.getTypesAndSymbols();
+        return ResponseEntity.ok(options);
     }
 
     private Map<String, Object> calculateSummary(List<Map<String, String>> dataPoints) {

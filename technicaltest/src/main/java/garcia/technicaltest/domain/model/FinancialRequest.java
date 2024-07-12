@@ -1,4 +1,4 @@
-package garcia.technicaltest;
+package garcia.technicaltest.domain.model;
 
 public class FinancialRequest {
     private String type;
