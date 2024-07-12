@@ -20,14 +20,15 @@ jobs:
         distribution: 'temurin'
 
     - name: Build with Maven
-      run: mvn clean package
+      run: |
+        mvn clean package
       working-directory: ./technicaltest
 
     - name: Log in to Docker Hub
       run: echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
 
     - name: Build Docker image
-      run: docker build -f ./technicaltest/Dockerfile -t ${{ secrets.DOCKER_HUB_USERNAME }}/technicaltest:latest .
-      
+      run: docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/technicaltest:latest .
+
     - name: Push Docker image
       run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/technicaltest:latest
